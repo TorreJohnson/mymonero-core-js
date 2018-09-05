@@ -9,11 +9,12 @@ var private_key =
 
 var nettype = mymonero.nettype_utils.network_type.MAINNET;
 
-mymonero.monero_utils.OnceModuleReady(function(Module)
+async function ex_1()
 {
-	var decoded = mymonero.monero_utils.decode_address(
+	var decoded = await mymonero.monero_utils.decode_address(
 		"49qwWM9y7j1fvaBK684Y5sMbN8MZ3XwDLcSaqcKwjh5W9kn9qFigPBNBwzdq6TCAm2gKxQWrdZuEZQBMjQodi9cNRHuCbTr",
 		nettype,
 	);
 	console.log("decoded", decoded)
-})
+}
+ex_1()

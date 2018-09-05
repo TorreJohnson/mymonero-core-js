@@ -83,36 +83,20 @@ var cnUtil = function(currencyConfig)
 	// 	console.log("wasmBinary", wasmBinary)
 	// 	_CNCrypto_template["wasmBinary"] = wasmBinary
 	// }
-	this._CNCrypto = undefined;
-	var loaded_CNCrypto = this.loaded_CNCrypto = function()
-	{ // CAUTION: calling this method blocks until _CNCrypto is loaded
-		if (typeof this._CNCrypto === 'undefined' || !this._CNCrypto) {
-			throw "You must call OnceModuleReady to wait for _CNCrypto to be ready"
-		}
-		return this._CNCrypto;
-	}
-	this.moduleReadyFns = [] // initial (gets set to undefined once Module ready)
-	this.OnceModuleReady = function(fn)
+	this.__loadPromise = null;
+	this.loaded_CNCrypto_Promise = function()
 	{
-		if (this._CNCrypto == null) {
-			if (typeof this.moduleReadyFns == 'undefined' || !this.moduleReadyFns) {
-				throw "Expected moduleReadyFns"
-			}
-			this.moduleReadyFns.push(fn)
-		} else {
-			fn(Module)
+		if (this.__loadPromise == null) {
+			this.__loadPromise = new Promise(function(resolve)
+			{
+				require("./MyMoneroCoreCpp")(_CNCrypto_template).ready.then(function(thisModule) 
+				{
+					resolve(thisModule);
+				});
+			})
 		}
+		return this.__loadPromise;
 	}
-	require("./MyMoneroCoreCpp")(_CNCrypto_template).then(function(thisModule) 
-	{
-		this._CNCrypto = thisModule
-		{
-			for (let fn of this.moduleReadyFns) {
-				fn(thisModule)
-			}
-		}
-		this.moduleReadyFns = [] // flash/free
-	});
 	//
 	function ret_val_boolstring_to_bool(boolstring)
 	{
@@ -137,47 +121,64 @@ var cnUtil = function(currencyConfig)
 	}
 	//
 	this.is_subaddress = function(addr, nettype) {
-		const args =
+		return new Promise(function(resolve, reject)
 		{
-			address: addr,
-			nettype_string: nettype_utils.nettype_to_API_string(nettype)
-		};
-		const args_str = JSON.stringify(args);
-		const CNCrypto = loaded_CNCrypto();
-		const ret_string = CNCrypto.is_subaddress(args_str);
-		const ret = JSON.parse(ret_string);
-		if (typeof ret.err_msg !== 'undefined' && ret.err_msg) {
-			return { err_msg: ret.err_msg }
-		}
-		return ret_val_boolstring_to_bool(ret.retVal);
+			this.loaded_CNCrypto_Promise().then(function(CNCrypto) {
+				const args =
+				{
+					address: addr,
+					nettype_string: nettype_utils.nettype_to_API_string(nettype)
+				};
+				const args_str = JSON.stringify(args);
+				const ret_string = CNCrypto.is_subaddress(args_str);
+				const ret = JSON.parse(ret_string);
+				if (typeof ret.err_msg !== 'undefined' && ret.err_msg) {
+					reject(new Error(ret.err_msg));
+				} else {
+					resolve(ret_val_boolstring_to_bool(ret.retVal));
+				}
+			});
+		});
 	};
 
-	this.is_integrated_address = function(addr, nettype) {
-		const args =
+	this.is_integrated_address = function(addr, nettype) 
+	{
+		return new Promise(function(resolve, reject)
 		{
-			address: addr,
-			nettype_string: nettype_utils.nettype_to_API_string(nettype)
-		};
-		const args_str = JSON.stringify(args);
-		const CNCrypto = loaded_CNCrypto();
-		const ret_string = CNCrypto.is_integrated_address(args_str);
-		const ret = JSON.parse(ret_string);
-		if (typeof ret.err_msg !== 'undefined' && ret.err_msg) {
-			return { err_msg: ret.err_msg }
-		}
-		return ret_val_boolstring_to_bool(ret.retVal);
+			this.loaded_CNCrypto_Promise().then(function(CNCrypto) {
+				const args =
+				{
+					address: addr,
+					nettype_string: nettype_utils.nettype_to_API_string(nettype)
+				};
+				const args_str = JSON.stringify(args);
+				const ret_string = CNCrypto.is_integrated_address(args_str);
+				const ret = JSON.parse(ret_string);
+				if (typeof ret.err_msg !== 'undefined' && ret.err_msg) {
+					reject(new Error(ret.err_msg));
+				} else {
+					resolve(ret_val_boolstring_to_bool(ret.retVal));
+				}
+			});
+		});
 	};
 
-	this.new_payment_id = function() {
-		const args = {};
-		const args_str = JSON.stringify(args);
-		const CNCrypto = loaded_CNCrypto();
-		const ret_string = CNCrypto.new_payment_id(args_str);
-		const ret = JSON.parse(ret_string);
-		if (typeof ret.err_msg !== 'undefined' && ret.err_msg) {
-			return { err_msg: ret.err_msg }
-		}
-		return ret.retVal;
+	this.new_payment_id = function() 
+	{
+		return new Promise(function(resolve, reject)
+		{
+			this.loaded_CNCrypto_Promise().then(function(CNCrypto) {
+				const args = {};
+				const args_str = JSON.stringify(args);
+				const ret_string = CNCrypto.new_payment_id(args_str);
+				const ret = JSON.parse(ret_string);
+				if (typeof ret.err_msg !== 'undefined' && ret.err_msg) {
+					reject(new Error(ret.err_msg));
+				} else {
+					resolve(ret.retVal);
+				}
+			});
+		});
 	};
 
 	this.new__int_addr_from_addr_and_short_pid = function(
@@ -185,148 +186,184 @@ var cnUtil = function(currencyConfig)
 		short_pid,
 		nettype
 	) {
-		if (!short_pid || short_pid.length != 16) {
-			return { err_msg: "expected valid short_pid" };
-		}
-		const args =
+		return new Promise(function(resolve, reject)
 		{
-			address: address,
-			short_pid: short_pid,
-			nettype_string: nettype_utils.nettype_to_API_string(nettype)
-		};
-		const args_str = JSON.stringify(args);
-		const CNCrypto = loaded_CNCrypto();
-		const ret_string = CNCrypto.new_integrated_address(args_str);
-		const ret = JSON.parse(ret_string);
-		if (typeof ret.err_msg !== 'undefined' && ret.err_msg) {
-			return { err_msg: ret.err_msg }
-		}
-		return ret.retVal;
+			if (!short_pid || short_pid.length != 16) {
+				reject(new Error("expected valid short_pid"));
+				return;
+			}
+			this.loaded_CNCrypto_Promise().then(function(CNCrypto) {
+				const args =
+				{
+					address: address,
+					short_pid: short_pid,
+					nettype_string: nettype_utils.nettype_to_API_string(nettype)
+				};
+				const args_str = JSON.stringify(args);
+				const ret_string = CNCrypto.new_integrated_address(args_str);
+				const ret = JSON.parse(ret_string);
+				if (typeof ret.err_msg !== 'undefined' && ret.err_msg) {
+					reject(new Error(ret.err_msg));
+				} else {
+					resolve(ret.retVal);
+				}
+			});
+		});
 	};
 
 	this.new_fake_address_for_rct_tx = function(nettype)
 	{ // TODO: possibly support sending random_scalar from JS to emscripten to avoid emscripten random
-		const args = { nettype_string: nettype_utils.nettype_to_API_string(nettype) };
-		const args_str = JSON.stringify(args);
-		const CNCrypto = loaded_CNCrypto();
-		const ret_string = CNCrypto.new_fake_address_for_rct_tx(args_str);
-		const ret = JSON.parse(ret_string);
-		if (typeof ret.err_msg !== 'undefined' && ret.err_msg) {
-			return { err_msg: ret.err_msg }
-		}
-		return ret.retVal;
+		return new Promise(function(resolve, reject)
+		{
+			this.loaded_CNCrypto_Promise().then(function(CNCrypto) {
+				const args = { nettype_string: nettype_utils.nettype_to_API_string(nettype) };
+				const args_str = JSON.stringify(args);
+				const ret_string = CNCrypto.new_fake_address_for_rct_tx(args_str);
+				const ret = JSON.parse(ret_string);
+				if (typeof ret.err_msg !== 'undefined' && ret.err_msg) {
+					reject(new Error(ret.err_msg));
+				} else {
+					resolve(ret.retVal);
+				}
+			});
+		});
 	};
 
 	this.decode_address = function(address, nettype)
 	{
-		const args =
+		return new Promise(function(resolve, reject)
 		{
-			address: address,
-			nettype_string: nettype_utils.nettype_to_API_string(nettype)
-		};
-		const args_str = JSON.stringify(args);
-		const CNCrypto = loaded_CNCrypto();
-		const ret_string = CNCrypto.decode_address(args_str);
-		const ret = JSON.parse(ret_string);
-		if (typeof ret.err_msg !== 'undefined' && ret.err_msg) {
-			return { err_msg: ret.err_msg }
-		}
-		return {
-			spend: ret.pub_spendKey_string,
-			view: ret.pub_viewKey_string,
-			intPaymentId: ret.paymentID_string, // may be undefined
-			isSubaddress: ret_val_boolstring_to_bool(ret.isSubaddress)
-		}
+			this.loaded_CNCrypto_Promise().then(function(CNCrypto) {
+				const args =
+				{
+					address: address,
+					nettype_string: nettype_utils.nettype_to_API_string(nettype)
+				};
+				const args_str = JSON.stringify(args);
+				const ret_string = CNCrypto.decode_address(args_str);
+				const ret = JSON.parse(ret_string);
+				if (typeof ret.err_msg !== 'undefined' && ret.err_msg) {
+					reject(new Error(ret.err_msg));
+				} else {
+					resolve({
+						spend: ret.pub_spendKey_string,
+						view: ret.pub_viewKey_string,
+						intPaymentId: ret.paymentID_string, // may be undefined
+						isSubaddress: ret_val_boolstring_to_bool(ret.isSubaddress)
+					});
+				}
+			});
+		});
 	};
 
 	this.newly_created_wallet = function(
 		locale_language_code,
 		nettype
 	) {
-		const args =
+		return new Promise(function(resolve, reject)
 		{
-			locale_language_code: locale_language_code, // NOTE: this function takes the locale, not the wordset name
-			nettype_string: nettype_utils.nettype_to_API_string(nettype)
-		};
-		const args_str = JSON.stringify(args);
-		const CNCrypto = loaded_CNCrypto();
-		const ret_string = CNCrypto.newly_created_wallet(args_str);
-		const ret = JSON.parse(ret_string);
-		if (typeof ret.err_msg !== 'undefined' && ret.err_msg) {
-			return { err_msg: ret.err_msg }
-		}
-		return { // calling these out so as to provide a stable ret val interface
-			mnemonic_string: ret.mnemonic_string,
-			mnemonic_language: ret.mnemonic_language,
-			sec_seed_string: ret.sec_seed_string,
-			address_string: ret.address_string,
-			pub_viewKey_string: ret.pub_viewKey_string,
-			sec_viewKey_string: ret.sec_viewKey_string,
-			pub_spendKey_string: ret.pub_spendKey_string,
-			sec_spendKey_string: ret.sec_spendKey_string
-		};
+			this.loaded_CNCrypto_Promise().then(function(CNCrypto) {
+				const args =
+				{
+					locale_language_code: locale_language_code, // NOTE: this function takes the locale, not the wordset name
+					nettype_string: nettype_utils.nettype_to_API_string(nettype)
+				};
+				const args_str = JSON.stringify(args);
+				const ret_string = CNCrypto.newly_created_wallet(args_str);
+				const ret = JSON.parse(ret_string);
+				if (typeof ret.err_msg !== 'undefined' && ret.err_msg) {
+					reject(new Error(ret.err_msg));
+				} else {
+					resolve({ // calling these out so as to provide a stable ret val interface
+						mnemonic_string: ret.mnemonic_string,
+						mnemonic_language: ret.mnemonic_language,
+						sec_seed_string: ret.sec_seed_string,
+						address_string: ret.address_string,
+						pub_viewKey_string: ret.pub_viewKey_string,
+						sec_viewKey_string: ret.sec_viewKey_string,
+						pub_spendKey_string: ret.pub_spendKey_string,
+						sec_spendKey_string: ret.sec_spendKey_string
+					});
+				}
+			});
+		});
 	};
 
 	this.are_equal_mnemonics = function(a, b) {
-		const args =
+		return new Promise(function(resolve, reject)
 		{
-			a: a,
-			b: b
-		};
-		const args_str = JSON.stringify(args);
-		const CNCrypto = loaded_CNCrypto();
-		const ret_string = CNCrypto.are_equal_mnemonics(args_str);
-		const ret = JSON.parse(ret_string);
-		if (typeof ret.err_msg !== 'undefined' && ret.err_msg) {
-			return { err_msg: ret.err_msg }
-		}
-		return ret_val_boolstring_to_bool(ret.retVal);
+			this.loaded_CNCrypto_Promise().then(function(CNCrypto) {
+				const args =
+				{
+					a: a,
+					b: b
+				};
+				const args_str = JSON.stringify(args);
+				const ret_string = CNCrypto.are_equal_mnemonics(args_str);
+				const ret = JSON.parse(ret_string);
+				if (typeof ret.err_msg !== 'undefined' && ret.err_msg) {
+					reject(new Error(ret.err_msg));
+				} else {
+					resolve(ret_val_boolstring_to_bool(ret.retVal));
+				}
+			});
+		});
 	}
 
 	this.mnemonic_from_seed = function(
 		seed_string,
 		wordset_name
 	) {
-		const args =
+		return new Promise(function(resolve, reject)
 		{
-			seed_string: seed_string,
-			wordset_name: api_safe_wordset_name(wordset_name)
-		};
-		const args_str = JSON.stringify(args);
-		const CNCrypto = loaded_CNCrypto();
-		const ret_string = CNCrypto.mnemonic_from_seed(args_str);
-		const ret = JSON.parse(ret_string);
-		if (typeof ret.err_msg !== 'undefined' && ret.err_msg) {
-			return { err_msg: ret.err_msg } // TODO: maybe return this somehow
-		}
-		return ret.retVal;
+			this.loaded_CNCrypto_Promise().then(function(CNCrypto) {
+				const args =
+				{
+					seed_string: seed_string,
+					wordset_name: api_safe_wordset_name(wordset_name)
+				};
+				const args_str = JSON.stringify(args);
+				const ret_string = CNCrypto.mnemonic_from_seed(args_str);
+				const ret = JSON.parse(ret_string);
+				if (typeof ret.err_msg !== 'undefined' && ret.err_msg) {
+					reject(new Error(ret.err_msg));
+				} else {
+					resolve(ret.retVal);
+				}
+			});
+		});
 	};
 
 	this.seed_and_keys_from_mnemonic = function(
 		mnemonic_string,
 		nettype
 	) {
-		const args =
+		return new Promise(function(resolve, reject)
 		{
-			mnemonic_string: mnemonic_string,
-			nettype_string: nettype_utils.nettype_to_API_string(nettype)
-		};
-		const args_str = JSON.stringify(args);
-		const CNCrypto = loaded_CNCrypto();
-		const ret_string = CNCrypto.seed_and_keys_from_mnemonic(args_str);
-		const ret = JSON.parse(ret_string);
-		if (typeof ret.err_msg !== 'undefined' && ret.err_msg) {
-			return { err_msg: ret.err_msg }
-		}
-		return { // calling these out so as to provide a stable ret val interface
-			sec_seed_string: ret.sec_seed_string,
-			mnemonic_language: ret.mnemonic_language,
-			address_string: ret.address_string,
-			pub_viewKey_string: ret.pub_viewKey_string,
-			sec_viewKey_string: ret.sec_viewKey_string,
-			pub_spendKey_string: ret.pub_spendKey_string,
-			sec_spendKey_string: ret.sec_spendKey_string
-		};
+			this.loaded_CNCrypto_Promise().then(function(CNCrypto) {
+				const args =
+				{
+					mnemonic_string: mnemonic_string,
+					nettype_string: nettype_utils.nettype_to_API_string(nettype)
+				};
+				const args_str = JSON.stringify(args);
+				const ret_string = CNCrypto.seed_and_keys_from_mnemonic(args_str);
+				const ret = JSON.parse(ret_string);
+				if (typeof ret.err_msg !== 'undefined' && ret.err_msg) {
+					reject(new Error(ret.err_msg));
+				} else {
+					resolve({ // calling these out so as to provide a stable ret val interface
+						sec_seed_string: ret.sec_seed_string,
+						mnemonic_language: ret.mnemonic_language,
+						address_string: ret.address_string,
+						pub_viewKey_string: ret.pub_viewKey_string,
+						sec_viewKey_string: ret.sec_viewKey_string,
+						pub_spendKey_string: ret.pub_spendKey_string,
+						sec_spendKey_string: ret.sec_spendKey_string
+					});
+				}
+			});
+		});
 	};
 
 	this.validate_components_for_login = function(
@@ -336,27 +373,32 @@ var cnUtil = function(currencyConfig)
 		seed_string,
 		nettype
 	) {
-		const args =
+		return new Promise(function(resolve, reject)
 		{
-			address_string: address_string,
-			sec_viewKey_string: sec_viewKey_string,
-			sec_spendKey_string: sec_spendKey_string,
-			seed_string: seed_string,
-			nettype_string: nettype_utils.nettype_to_API_string(nettype)
-		};
-		const args_str = JSON.stringify(args);
-		const CNCrypto = loaded_CNCrypto();
-		const ret_string = CNCrypto.validate_components_for_login(args_str);
-		const ret = JSON.parse(ret_string);
-		if (typeof ret.err_msg !== 'undefined' && ret.err_msg) {
-			return { err_msg: ret.err_msg }
-		}
-		return { // calling these out so as to provide a stable ret val interface
-			isValid: ret_val_boolstring_to_bool(ret.isValid),
-			isInViewOnlyMode: ret_val_boolstring_to_bool(ret.isInViewOnlyMode),
-			pub_viewKey_string: ret.pub_viewKey_string,
-			pub_spendKey_string: ret.pub_spendKey_string
-		};
+			this.loaded_CNCrypto_Promise().then(function(CNCrypto) {
+				const args =
+				{
+					address_string: address_string,
+					sec_viewKey_string: sec_viewKey_string,
+					sec_spendKey_string: sec_spendKey_string,
+					seed_string: seed_string,
+					nettype_string: nettype_utils.nettype_to_API_string(nettype)
+				};
+				const args_str = JSON.stringify(args);
+				const ret_string = CNCrypto.validate_components_for_login(args_str);
+				const ret = JSON.parse(ret_string);
+				if (typeof ret.err_msg !== 'undefined' && ret.err_msg) {
+					reject(new Error(ret.err_msg));
+				} else {
+					resolve({ // calling these out so as to provide a stable ret val interface
+						isValid: ret_val_boolstring_to_bool(ret.isValid),
+						isInViewOnlyMode: ret_val_boolstring_to_bool(ret.isInViewOnlyMode),
+						pub_viewKey_string: ret.pub_viewKey_string,
+						pub_spendKey_string: ret.pub_spendKey_string
+					});
+				}
+			});
+		});
 	};
 
 	this.generate_key_image = function(
@@ -366,34 +408,43 @@ var cnUtil = function(currencyConfig)
 		spend_sec,
 		output_index
 	) {
-		if (tx_pub.length !== 64) {
-			return { err_msg: "Invalid tx_pub length" };
-		}
-		if (view_sec.length !== 64) {
-			return { err_msg: "Invalid view_sec length" };
-		}
-		if (spend_pub.length !== 64) {
-			return { err_msg: "Invalid spend_pub length" };
-		}
-		if (spend_sec.length !== 64) {
-			return { err_msg: "Invalid spend_sec length" };
-		}
-		const args =
+		return new Promise(function(resolve, reject)
 		{
-			sec_viewKey_string: view_sec,
-			sec_spendKey_string: spend_sec,
-			pub_spendKey_string: spend_pub,
-			tx_pub_key: tx_pub,
-			out_index: "" + output_index
-		};
-		const args_str = JSON.stringify(args);
-		const CNCrypto = loaded_CNCrypto();
-		const ret_string = CNCrypto.generate_key_image(args_str);
-		const ret = JSON.parse(ret_string);
-		if (typeof ret.err_msg !== 'undefined' && ret.err_msg) {
-			return { err_msg: ret.err_msg };
-		}
-		return ret.retVal;
+			if (tx_pub.length !== 64) {
+				reject(new Error("Invalid tx_pub length"));
+				return;
+			}
+			if (view_sec.length !== 64) {
+				reject(new Error("Invalid view_sec length"));
+				return;
+			}
+			if (spend_pub.length !== 64) {
+				reject(new Error("Invalid spend_pub length"));
+				return;
+			}
+			if (spend_sec.length !== 64) {
+				reject(new Error("Invalid spend_sec length"));
+				return;
+			}
+			this.loaded_CNCrypto_Promise().then(function(CNCrypto) {
+				const args =
+				{
+					sec_viewKey_string: view_sec,
+					sec_spendKey_string: spend_sec,
+					pub_spendKey_string: spend_pub,
+					tx_pub_key: tx_pub,
+					out_index: "" + output_index
+				};
+				const args_str = JSON.stringify(args);
+				const ret_string = CNCrypto.generate_key_image(args_str);
+				const ret = JSON.parse(ret_string);
+				if (typeof ret.err_msg !== 'undefined' && ret.err_msg) {
+					reject(new Error(ret.err_msg));
+				} else {
+					resolve(ret.retVal);
+				}
+			});
+		});
 	};
 
 	this.create_signed_transaction = function(
@@ -443,98 +494,95 @@ var cnUtil = function(currencyConfig)
 		rct,
 		nettype
 	) {
-		unlock_time = unlock_time || 0;
-		mix_outs = mix_outs || [];
-		if (rct != true) {
-			return { err_msg: "Expected rct=true" }
-		}
-		if (mix_outs.length !== outputs.length && fake_outputs_count !== 0) {
-			return { err_msg: "Wrong number of mix outs provided (" +
-				outputs.length +
-				" outputs, " +
-				mix_outs.length +
-				" mix outs)" };
-		}
-		for (var i = 0; i < mix_outs.length; i++) {
-			if ((mix_outs[i].outputs || []).length < fake_outputs_count) {
-				return { err_msg: "Not enough outputs to mix with" };
+		return new Promise(function(resolve, reject)
+		{
+			unlock_time = unlock_time || 0;
+			mix_outs = mix_outs || [];
+			if (rct != true) {
+				return reject(new Error("Expected rct=true"));
 			}
-		}
-		//
-		// Now we need to convert all non-JSON-serializable objects such as JSBigInts to strings etc
-		var sanitary__outputs = [];
-		for (let i in outputs) {
-			const sanitary__output = 
-			{
-				amount: outputs[i].amount.toString(),
-				public_key: outputs[i].public_key,
-				global_index: "" + outputs[i].global_index,
-				index: "" + outputs[i].index,
-				tx_pub_key: outputs[i].tx_pub_key
-			};
-			if (outputs[i].rct && typeof outputs[i].rct !== 'undefined') {
-				sanitary__output.rct = outputs[i].rct;
+			if (mix_outs.length !== outputs.length && fake_outputs_count !== 0) {
+				return reject(new Error("Wrong number of mix outs provided (" +
+					outputs.length +
+					" outputs, " +
+					mix_outs.length +
+					" mix outs)"));
 			}
-			sanitary__outputs.push(sanitary__output);
-		}
-		var sanitary__mix_outs = [];
-		for (let i in mix_outs) {
-			const sanitary__mix_outs_and_amount =
-			{
-				amount: "" + mix_outs[i].amount,
-				outputs: [] 
-			};
-			if (mix_outs[i].outputs && typeof mix_outs[i].outputs !== 'undefined') {
-				for (let j in mix_outs[i].outputs) {
-					const sanitary__mix_out =
-					{
-						global_index: "" + mix_outs[i].outputs[j].global_index,
-						public_key: mix_outs[i].outputs[j].public_key
-					};
-					if (mix_outs[i].outputs[j].rct && typeof mix_outs[i].outputs[j].rct !== 'undefined') {
-						sanitary__mix_out.rct = mix_outs[i].outputs[j].rct;
-					}
-					sanitary__mix_outs_and_amount.outputs.push(sanitary__mix_out);
+			for (var i = 0; i < mix_outs.length; i++) {
+				if ((mix_outs[i].outputs || []).length < fake_outputs_count) {
+					return reject(new Error("Not enough outputs to mix with"));
 				}
 			}
-			sanitary__mix_outs.push(sanitary__mix_outs_and_amount);
-		}
-		const args =
-		{
-			from_address_string: from_address_string,
-			sec_viewKey_string: sec_keys.view,
-			sec_spendKey_string: sec_keys.spend,
-			to_address_string: to_address_string,
-			sending_amount: sending_amount.toString(),
-			change_amount: change_amount.toString(),
-			fee_amount: fee_amount.toString(),
-			outputs: sanitary__outputs,
-			mix_outs: sanitary__mix_outs,
-			unlock_time: "" + unlock_time, // bridge is expecting a string
-			nettype_string: nettype_utils.nettype_to_API_string(nettype)
-		};
-		if (typeof payment_id !== "undefined" && payment_id) {
-			args.payment_id_string = payment_id;
-		}
-		const args_str = JSON.stringify(args);
-		const ret_string = loaded_CNCrypto().create_transaction(args_str);
-		const ret = JSON.parse(ret_string);
-		//
-		if (typeof ret.err_msg !== 'undefined' && ret.err_msg) {
-			return { err_msg: ret.err_msg };
-		}
-		return { // calling these out to set an interface
-			signed_serialized_tx: ret.serialized_signed_tx,
-			tx_hash: ret.tx_hash,
-			tx_key: ret.tx_key
-		};
+			//
+			// Now we need to convert all non-JSON-serializable objects such as JSBigInts to strings etc
+			var sanitary__outputs = [];
+			for (let i in outputs) {
+				const sanitary__output = 
+				{
+					amount: outputs[i].amount.toString(),
+					public_key: outputs[i].public_key,
+					global_index: "" + outputs[i].global_index,
+					index: "" + outputs[i].index,
+					tx_pub_key: outputs[i].tx_pub_key
+				};
+				if (outputs[i].rct && typeof outputs[i].rct !== 'undefined') {
+					sanitary__output.rct = outputs[i].rct;
+				}
+				sanitary__outputs.push(sanitary__output);
+			}
+			var sanitary__mix_outs = [];
+			for (let i in mix_outs) {
+				const sanitary__mix_outs_and_amount =
+				{
+					amount: "" + mix_outs[i].amount,
+					outputs: [] 
+				};
+				if (mix_outs[i].outputs && typeof mix_outs[i].outputs !== 'undefined') {
+					for (let j in mix_outs[i].outputs) {
+						const sanitary__mix_out =
+						{
+							global_index: "" + mix_outs[i].outputs[j].global_index,
+							public_key: mix_outs[i].outputs[j].public_key
+						};
+						if (mix_outs[i].outputs[j].rct && typeof mix_outs[i].outputs[j].rct !== 'undefined') {
+							sanitary__mix_out.rct = mix_outs[i].outputs[j].rct;
+						}
+						sanitary__mix_outs_and_amount.outputs.push(sanitary__mix_out);
+					}
+				}
+				sanitary__mix_outs.push(sanitary__mix_outs_and_amount);
+			}
+			const args =
+			{
+				from_address_string: from_address_string,
+				sec_viewKey_string: sec_keys.view,
+				sec_spendKey_string: sec_keys.spend,
+				to_address_string: to_address_string,
+				sending_amount: sending_amount.toString(),
+				change_amount: change_amount.toString(),
+				fee_amount: fee_amount.toString(),
+				outputs: sanitary__outputs,
+				mix_outs: sanitary__mix_outs,
+				unlock_time: "" + unlock_time, // bridge is expecting a string
+				nettype_string: nettype_utils.nettype_to_API_string(nettype)
+			};
+			if (typeof payment_id !== "undefined" && payment_id) {
+				args.payment_id_string = payment_id;
+			}
+			const args_str = JSON.stringify(args);
+			const ret_string = CNCrypto.create_transaction(args_str);
+			const ret = JSON.parse(ret_string);
+			//
+			if (typeof ret.err_msg !== 'undefined' && ret.err_msg) {
+				return reject(new Error(ret.err_msg));
+			}
+			resolve({ // calling these out to set an interface
+				signed_serialized_tx: ret.serialized_signed_tx,
+				tx_hash: ret.tx_hash,
+				tx_key: ret.tx_key
+			});
+		});
 	};
-
-	function assert(stmt, val) {
-		if (!stmt) {
-			throw "assert failed" + (val !== undefined ? ": " + val : "");
-		}
-	}
 
 	return this;
 };
